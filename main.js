@@ -3,15 +3,9 @@ let gl;                         // The webgl context.
 let surface;                    // A surface model
 let shProgram;                  // A shader program
 let spaceball;                  // A SimpleRotator object that lets the user rotate the view by mouse.
-let parabolaValue = 0.0;
 let video
 
 const scale = 8;
-
-const calcParabola = () => {
-    let TParam = Math.sin(parabolaValue) * 3.6;
-    return [TParam * scale, 9 * scale, (-10 + (TParam * TParam)) * scale];
-}
 
 // Init data for calculation figure coordinates
 const generalColor = [0.5,0.9,0.2,1];
@@ -309,12 +303,13 @@ function init() {
         return;
     }
 
+    let constraints = {video: true}
     video = document.createElement('video');
     //video.autoplay = true;
 
     spaceball = new TrackballRotator(canvas, draw, 0);
 
-    let constraints = {video: true}
+
     //navigator.mediaDevices.getUserMedia(constraints).then(stream => {video.srcObject = stream; video.play()});
     // window.setInterval(() => {
     //     draw()
