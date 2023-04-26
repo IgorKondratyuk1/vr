@@ -3,19 +3,15 @@ let gl;                         // The webgl context.
 let surface;                    // A surface model
 let shProgram;                  // A shader program
 let spaceball;                  // A SimpleRotator object that lets the user rotate the view by mouse.
-let video
-
-const scale = 8;
+let video, videoTrack, webcamTexture, background;
 
 // Init data for calculation figure coordinates
-const generalColor = [0.5,0.9,0.2,1];
-
+let scale = 0.4;
 let r = 1;
 let c = 2;
 let d = 1;
 let teta = Math.PI/2;
 let a0 = 0;
-
 
 // Functions for calculation X,Y,Z coordinates for surface
 function getX (t,a, param = 15) {
@@ -34,44 +30,61 @@ function deg2rad(angle) {
 
 
 // Constructor
-function Model(name) {
+function SurfaceModel(name) {
     this.name = name;
     this.iVertexBuffer = gl.createBuffer();
-    this.iNormalBuffer = gl.createBuffer();
     this.count = 0;
 
-    this.BufferData = function({ vertexList, normalsList }) {
-
+    this.BufferData = function(vertices) {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexList), gl.STREAM_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer)
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normalsList), gl.STREAM_DRAW);
-
-        this.count = vertexList.length/3;
+        this.count = vertices.length/3;
     }
 
     this.Draw = function() {
-
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.vertexAttribPointer(shProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(shProgram.iAttribVertex);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
-        gl.vertexAttribPointer(shProgram.iNormalVertex, 3, gl.FLOAT, true, 0, 0);
-        gl.enableVertexAttribArray(shProgram.iNormalVertex);
-
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.count);
-        gl.uniform4fv(shProgram.iColor, [0.,0.,0.,1]);
-        gl.lineWidth(1);
         gl.drawArrays(gl.LINE_STRIP, 0, this.count);
+    }
+}
+
+function BackgroundModel(name) {
+    this.name = name;
+    this.iVertexBuffer = gl.createBuffer();
+    this.iTextureBuffer = gl.createBuffer();
+    this.count = 0;
+
+    this.BufferDataWithTexture = function (vertices, texture) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iTextureBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texture), gl.STREAM_DRAW);
+
+        gl.enableVertexAttribArray(shProgram.iTextureCoords);
+        gl.vertexAttribPointer(shProgram.iTextureCoords, 2, gl.FLOAT, false, 0, 0);
+
+        this.count = vertices.length / 3;
+    }
+
+    this.DrawBG = function () {
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
+        gl.vertexAttribPointer(shProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(shProgram.iAttribVertex);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iTextureBuffer);
+        gl.vertexAttribPointer(shProgram.iTextureCoords, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(shProgram.iTextureCoords);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.count);
     }
 }
 
 
 // Constructor
 function ShaderProgram(name, program) {
-
     this.name = name;
     this.prog = program;
 
@@ -84,16 +97,6 @@ function ShaderProgram(name, program) {
 
     this.iNormalVertex = -1;
 
-    this.iWorldMatrix = -1;
-    this.iWorldInverseTranspose = -1;
-
-    this.iLightWorldPosition = -1;
-    this.iLightDirection = -1;
-
-    this.iViewWorldPosition = -1;
-
-    this.iLimit = -1;
-
     this.Use = function() {
         gl.useProgram(this.prog);
     }
@@ -105,128 +108,98 @@ function ShaderProgram(name, program) {
  * way to draw with WebGL.  Here, the geometry is so simple that it doesn't matter.)
  */
 function draw() {
-    let D = document;
-    let spans = D.getElementsByClassName("slider-value");
-
-    gl.clearColor(1, 1, 1, 1); // color of bg
+    gl.clearColor(1,1,1,1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    /* Set the values of the projection transformation */
-    let projection = m4.perspective(Math.PI / 8, 1, 8, 12);
-    let conv, // convergence
-        eyes, // eye separation
-        ratio, // aspect ratio
-        fov; // field of view
-    conv = 1000.0;
-    conv = D.getElementById("conv").value;
-    spans[3].innerHTML=conv;
-    eyes = 70.0;
-    eyes = D.getElementById("eyes").value;
-    spans[0].innerHTML=eyes;
-    ratio = 1.0;
-    fov = Math.PI / 4;
-    fov = D.getElementById("fov").value;
-    spans[1].innerHTML=fov;
-    let top, bottom, left, right, near, far;
-    near = 10.0;
-    near = D.getElementById("near").value-0.0;
-    spans[2].innerHTML=near;
-    far = 1000.0;
-
-    top = near * Math.tan(fov / 2.0);
-    bottom = -top;
-
-    let a = ratio * Math.tan(fov / 2.0) * conv;
-
-    let b = a - eyes / 2;
-    let c = a + eyes / 2;
-
-    left = -b * near / conv;
-    right = c * near / conv;
-
-    let projectionLeft = m4.orthographic(left, right, bottom, top, near, far);
-
-    left = -c * near / conv;
-    right = b * near / conv;
-
-    let projectionRight = m4.orthographic(left, right, bottom, top, near, far);
 
     /* Get the view matrix from the SimpleRotator object.*/
     let modelView = spaceball.getViewMatrix();
 
-    let rotateToPointZero = m4.axisRotation([0.707, 0.707, 0], 0.7);
-    let translateToPointZero = m4.translation(0.0, 0, -20);
-    let translateToLeft = m4.translation(-0.03, 0, -20);
-    let translateToRight = m4.translation(0.03, 0, -20);
-
-    let matAccum = m4.multiply(rotateToPointZero, modelView);
-
-    let matAccum1 = m4.multiply(translateToPointZero, matAccum);
-    let matAccumLeft = m4.multiply(translateToLeft, matAccum1);
-    let matAccumRight = m4.multiply(translateToRight, matAccum1);
-
-    gl.enable(gl.CULL_FACE);
-
-    gl.uniform4fv(shProgram.iColor, generalColor );
-    gl.uniformMatrix4fv(shProgram.iModelViewMatrix, false, matAccumLeft);
-    gl.uniformMatrix4fv(shProgram.iProjectionMatrix, false, projectionLeft);
-    gl.colorMask(true, false, false, false);
-    surface.Draw();
-
-    gl.clear(gl.DEPTH_BUFFER_BIT);
-
-    gl.uniform4fv(shProgram.iColor, generalColor );
-    gl.uniformMatrix4fv(shProgram.iModelViewMatrix, false, matAccumRight);
-    gl.uniformMatrix4fv(shProgram.iProjectionMatrix, false, projectionRight);
-    gl.colorMask(false, true, true, false);
+    let rotateToPointZero = m4.axisRotation([0.707,0.707,0], 0);
+    let translateToPointZero = m4.translation(0,0,-10);
 
 
-    surface.Draw();
-    gl.colorMask(true, true, true, true);
-    window.requestAnimationFrame(draw);
-    // console.log(video.srcObject);
-    // gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,video.srcObject);
+    /* Multiply the projection matrix times the modelview matrix to give the
+       combined transformation matrix, and send that to the shader program. */
+
+    // Default values
+    let convergence = 100;          // Convergence
+    let eyeSeparation = 0.2;        // Eye Separation
+    let aspectRatio = 1.5;          // Aspect Ratio
+    let fieldOfView = Math.PI / 3;  // FOV along Y in degrees
+    let nearClippingDistance = 9;   // Near Clipping Distance
+    let farClippingDistance = 12.0; // Far Clipping Distance
+
+    fieldOfView = Number(document.getElementById('fieldOfView').value);
+    convergence = Number(document.getElementById('convergence').value);
+    eyeSeparation = Number(document.getElementById('eyeSeparation').value);
+    nearClippingDistance = Number(document.getElementById('nearClippingDistance').value);
+
+
+    let defaultMatr = m4.multiply(rotateToPointZero, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+    /* Draw the six faces of a cube, with different colors. */
+    gl.uniform4fv(shProgram.iColor, [1, 1, 1, 1]);
+
+    // Using only for drawing surface with webcam background
+    let projection = m4.orthographic(0, 1, 0, 1, -1, 1);
+    gl.uniformMatrix4fv(shProgram.iModelViewMatrix, false, defaultMatr);
+    gl.uniformMatrix4fv(shProgram.iProjectionMatrix, false, projection);
+
+    gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        video
+    );
+    background.DrawBG();
+    gl.uniform4fv(shProgram.iColor, [0, 0, 0, 1]);
+
+
+    gl.uniformMatrix4fv(shProgram.iModelViewMatrix, false, defaultMatr);
+    gl.uniformMatrix4fv(shProgram.iProjectionMatrix, false, defaultMatr);
+
+    let translateLeftEye = m4.translation(-eyeSeparation / 2, 0, 0);
+    let translateRightEye = m4.translation(eyeSeparation / 2, 0, 0);
+
+    let matAccum = m4.multiply(rotateToPointZero, modelView)
+    let matAccumLR = m4.multiply(translateLeftEye, matAccum)
+    let matAccumZero = m4.multiply(translateToPointZero, matAccumLR)
+    let matrixLeftFrustum = ApplyLeftFrustum(convergence, eyeSeparation, aspectRatio, fieldOfView, nearClippingDistance, farClippingDistance)
+
+    gl.uniformMatrix4fv(shProgram.iProjectionMatrix, false, matrixLeftFrustum)
+    gl.uniformMatrix4fv(shProgram.iModelViewMatrix, false, matAccumZero)
+    gl.colorMask(true, false, false, false)
+    surface.Draw()
+    gl.clear(gl.DEPTH_BUFFER_BIT)
+
+    let matrixRightFrustum = ApplyRightFrustum(convergence, eyeSeparation, aspectRatio, fieldOfView, nearClippingDistance, farClippingDistance);
+    gl.uniformMatrix4fv(shProgram.iProjectionMatrix, false, matrixRightFrustum)
+    matAccumLR = m4.multiply(translateRightEye, matAccum)
+    matAccumZero = m4.multiply(translateToPointZero, matAccumLR)
+
+
+    gl.uniformMatrix4fv(shProgram.iModelViewMatrix, false, matAccumZero)
+    gl.colorMask(false, true, true, false)
+
+    surface.Draw()
+    gl.colorMask(true, true, true, true)
 }
 
 function CreateSurfaceData() {
     let vertexList = [];
-    let normalsList = [];
-
-    let deltaT = 0.005;
-    let deltaA = 0.005;
-
-    const step = .5
+    const step = 0.5
 
     for (let t = -15; t <= 15; t += step) {
         for (let a = 0; a <= 15; a += step) {
             const tNext = t + step;
             vertexList.push(getX(t, a, 10), getY(t, a, 10), getZ(t, 20));
             vertexList.push(getX(tNext, a, 10), getY(tNext, a, 10), getZ(tNext, 20));
-
-            // Normals
-            let result = m4.cross(calcDerT(t, a, deltaT), calcDerA(t, a, deltaA));
-            normalsList.push(result[0], result[1], result[2])
-
-            result = m4.cross(calcDerT(tNext, a, deltaT), calcDerA(tNext, a, deltaA));
-            normalsList.push(result[0], result[1], result[2]);
         }
     }
 
-    return { vertexList, normalsList };
+    return vertexList;
 }
-
-const calcDerT = (t, a, tDelta) => ([
-    (getX(t + tDelta, a, 10) - getX(t, a, 10)) / deg2rad(tDelta),
-    (getY(t + tDelta, a, 10) - getY(t, a, 10)) / deg2rad(tDelta),
-    (getZ(t + tDelta, a) - getZ(t, a)) / deg2rad(tDelta),
-])
-
-const calcDerA = (t, a, aDelta) => ([
-    (getX(t, a + aDelta, 10) - getX(t, a, 10)) / deg2rad(aDelta),
-    (getY(t, a + aDelta, 10) - getY(t, a, 10)) / deg2rad(aDelta),
-    (getZ(t, a + aDelta) - getZ(t, a)) / deg2rad(aDelta),
-])
-
 
 /* Initialize the WebGL context. Called from init() */
 function initGL() {
@@ -235,13 +208,40 @@ function initGL() {
     shProgram = new ShaderProgram('Basic', prog);
     shProgram.Use();
 
-    shProgram.iAttribVertex              = gl.getAttribLocation(prog, "vertex");
-    shProgram.iColor                     = gl.getUniformLocation(prog, "color");
+    shProgram.iAttribVertex = gl.getAttribLocation(prog, "vertex");
+    //shProgram.iColor = gl.getUniformLocation(prog, "color");
     
-    shProgram.iModelViewMatrix           = gl.getUniformLocation(prog, "ModelViewMatrix");
-    shProgram.iProjectionMatrix          = gl.getUniformLocation(prog, "ProjectionMatrix");
-    surface = new Model('Surface');
+    shProgram.iModelViewMatrix = gl.getUniformLocation(prog, "ModelViewMatrix");
+    shProgram.iProjectionMatrix = gl.getUniformLocation(prog, "ProjectionMatrix");
+
+    shProgram.iNormal = gl.getAttribLocation(prog, 'normal');
+    shProgram.iNormalMatrix = gl.getUniformLocation(prog, 'normalMat');
+    shProgram.iColor = gl.getUniformLocation(prog, 'colorU');
+
+    shProgram.iTextureCoords = gl.getAttribLocation(prog, 'textureCoords');
+    shProgram.iTMU = gl.getUniformLocation(prog, 'tmu');
+
+
+    surface = new SurfaceModel('Surface');
     surface.BufferData(CreateSurfaceData());
+
+    background = new BackgroundModel('Background');
+    background.BufferDataWithTexture(
+        [
+            0,0,0,
+            1,0,0,
+            1,1,0,
+            1,1,0,
+            0,1,0,
+            0,0,0],
+        [
+            1,1,0,
+            1,0,0,
+            0,0,1,
+            0,1,1]
+    );
+
+    gl.enable(gl.DEPTH_TEST);
 }
 
 
@@ -280,7 +280,7 @@ function createProgram(gl, vShader, fShader) {
 /**
  * initialization function that will be called when the page has loaded
  */
-function init() {
+async function init() {
     let canvas;
     try {
         canvas = document.getElementById("webglcanvas");
@@ -288,6 +288,8 @@ function init() {
         if ( ! gl ) {
             throw "Browser does not support WebGL";
         }
+
+        await configCamVideo();
     }
     catch (e) {
         document.getElementById("canvas-holder").innerHTML =
@@ -303,16 +305,66 @@ function init() {
         return;
     }
 
-    let constraints = {video: true}
-    video = document.createElement('video');
-    //video.autoplay = true;
-
     spaceball = new TrackballRotator(canvas, draw, 0);
 
+    window.setInterval(() => draw(), 1000 / 15);
+}
 
-    //navigator.mediaDevices.getUserMedia(constraints).then(stream => {video.srcObject = stream; video.play()});
-    // window.setInterval(() => {
-    //     draw()
-    // }, 1000 / 10);
-    draw();
+function ApplyLeftFrustum(convergence, eyeSeparation, aspectRatio, fieldOfView, nearClippingDistance, farClippingDistance) {
+    let a = aspectRatio * Math.tan(fieldOfView / 2) * convergence;
+    let b = a - eyeSeparation / 2;
+    let c = a + eyeSeparation / 2;
+
+    let top = nearClippingDistance * Math.tan(fieldOfView / 2);
+    let bottom = -top;
+    let left = (-b * nearClippingDistance) / convergence;
+    let right = (c * nearClippingDistance) / convergence;
+
+    // Create and return a perspective projection matrix
+    return m4.frustum(left, right, bottom, top, nearClippingDistance, farClippingDistance)
+}
+
+function ApplyRightFrustum(convergence, eyeSeparation, aspectRatio, fieldOfView, nearClippingDistance, farClippingDistance) {
+    let a = aspectRatio * Math.tan(fieldOfView / 2) * convergence;
+    let b = a - eyeSeparation / 2;
+    let c = a + eyeSeparation / 2;
+
+    let top = nearClippingDistance * Math.tan(fieldOfView / 2);
+    let bottom = -top;
+    let left = (-c * nearClippingDistance) / convergence;
+    let right = (b * nearClippingDistance) / convergence;
+
+    // Create and return a perspective projection matrix
+    return m4.frustum(left, right, bottom, top, nearClippingDistance, farClippingDistance)
+}
+
+async function configCamVideo() {
+    video = document.createElement('video');
+    video.setAttribute('autoplay', 'true');
+    await getWebcam();
+    webcamTexture = CreateWebCamTexture();
+}
+
+async function getWebcam() {
+    let stream = null;
+
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        video.srcObject = stream;
+        videoTrack = stream.getTracks()[0];
+    } catch(err) {
+        console.log('Camera Error');
+        console.log(err);
+    }
+}
+
+function CreateWebCamTexture() {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    return texture;
 }
