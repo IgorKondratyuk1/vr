@@ -415,11 +415,19 @@ function CreateWebCamTexture() {
 const startDeviceOrientation = async () => {
     try {
         window.addEventListener('deviceorientation', (event) => {
-            alpha = event.alpha
-            beta = event.beta
-            gamma = event.gamma
+            alpha = event.alpha;
+            beta = event.beta;
+            gamma = event.gamma;
+
+            showDeviceorientationData(alpha, beta, gamma);
         }, true);
     } catch (error) {
         console.error('error', error);
     }
 };
+
+const showDeviceorientationData = (alpha, beta, gamma) => {
+    document.getElementById('alpha').innerHTML = alpha;
+    document.getElementById('beta').innerHTML = beta;
+    document.getElementById('gamma').innerHTML = gamma;
+}

@@ -23,7 +23,7 @@
     <h3>Implement surface rotation based on software orientation sensor readings.</h3>
     <div style="display: flex;">
         <div id="canvas-holder">
-            <canvas width="600" height="600" id="webglcanvas" style="background-color:red; border: 1px solid black"></canvas>
+            <canvas width="600" height="500" id="webglcanvas" style="background-color:red; border: 1px solid black"></canvas>
         </div>
         <div style="display: flex; padding-left: 40px;">
             <div style="padding: 10px;">
@@ -51,6 +51,11 @@
                 </div>
             </div>
         </div>
+    </div>
+    <div>
+        alpha: <span id="alpha"></span> ;
+        beta <span id="beta"></span> ;
+        gamma <span id="gamma"></span> ;
     </div>
     <script>
         function showValue(inputId, spanId) {
