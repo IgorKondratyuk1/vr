@@ -13,6 +13,12 @@ let d = 1;
 let teta = Math.PI/2;
 let a0 = 0;
 
+// Device Rotation Data
+var alpha = 0;
+var beta = 0;
+var gamma = 0;
+var degtorad = Math.PI / 180; // Degree-to-Radian conversion
+
 // Functions for calculation X,Y,Z coordinates for surface
 function getX (t,a, param = 15) {
     return ((r * Math.cos(a) - (r * (a0 - a) + t * Math.cos(teta) - c * Math.sin(d * t) * Math.sin(teta)) * Math.sin(a)) / param) * scale;
@@ -26,6 +32,42 @@ function getZ (t, height = 15) {
 
 function deg2rad(angle) {
     return angle * Math.PI / 180;
+}
+
+function getRotationMatrix(alpha, beta, gamma) {
+    var _x = beta  ? beta  * degtorad : 0; // beta value
+    var _y = gamma ? gamma * degtorad : 0; // gamma value
+    var _z = alpha ? alpha * degtorad : 0; // alpha value
+
+    var cX = Math.cos( _x );
+    var cY = Math.cos( _y );
+    var cZ = Math.cos( _z );
+    var sX = Math.sin( _x );
+    var sY = Math.sin( _y );
+    var sZ = Math.sin( _z );
+
+    //
+    // ZXY rotation matrix construction.
+    //
+
+    var m11 = cZ * cY - sZ * sX * sY;
+    var m12 = - cX * sZ;
+    var m13 = cY * sZ * sX + cZ * sY;
+
+    var m21 = cY * sZ + cZ * sX * sY;
+    var m22 = cZ * cX;
+    var m23 = sZ * sY - cZ * cY * sX;
+
+    var m31 = - cX * sY;
+    var m32 = sX;
+    var m33 = cX * cY;
+
+    return [
+        m11, m12, m13, 0,
+        m21, m22, m23, 0,
+        m31, m32, m33, 0,
+        0,   0,   0,   1
+    ];
 }
 
 
@@ -112,7 +154,8 @@ function draw() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     /* Get the view matrix from the SimpleRotator object.*/
-    let modelView = spaceball.getViewMatrix();
+    //let modelView = spaceball.getViewMatrix();
+    let modelView = getRotationMatrix(alpha, beta, gamma);
 
     let rotateToPointZero = m4.axisRotation([0.707,0.707,0], 0);
     let translateToPointZero = m4.translation(0,0,-10);
@@ -140,19 +183,19 @@ function draw() {
     gl.uniform4fv(shProgram.iColor, [1, 1, 1, 1]);
 
     // Using only for drawing surface with webcam background
-    let projection = m4.orthographic(0, 1, 0, 1, -1, 1);
-    gl.uniformMatrix4fv(shProgram.iModelViewMatrix, false, defaultMatr);
-    gl.uniformMatrix4fv(shProgram.iProjectionMatrix, false, projection);
+    // let projection = m4.orthographic(0, 1, 0, 1, -1, 1);
+    // gl.uniformMatrix4fv(shProgram.iModelViewMatrix, false, defaultMatr);
+    // gl.uniformMatrix4fv(shProgram.iProjectionMatrix, false, projection);
 
-    gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RGBA,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        video
-    );
-    //background.DrawBG();
+    // gl.texImage2D(
+    //     gl.TEXTURE_2D,
+    //     0,
+    //     gl.RGBA,
+    //     gl.RGBA,
+    //     gl.UNSIGNED_BYTE,
+    //     video
+    // );
+    // background.DrawBG();
     gl.uniform4fv(shProgram.iColor, [0, 0, 0, 1]);
 
 
@@ -210,7 +253,7 @@ function initGL() {
 
     shProgram.iAttribVertex = gl.getAttribLocation(prog, "vertex");
     //shProgram.iColor = gl.getUniformLocation(prog, "color");
-    
+
     shProgram.iModelViewMatrix = gl.getUniformLocation(prog, "ModelViewMatrix");
     shProgram.iProjectionMatrix = gl.getUniformLocation(prog, "ProjectionMatrix");
 
@@ -289,7 +332,7 @@ async function init() {
             throw "Browser does not support WebGL";
         }
 
-        await configCamVideo();
+        //await configCamVideo();
     }
     catch (e) {
         document.getElementById("canvas-holder").innerHTML =
@@ -306,7 +349,7 @@ async function init() {
     }
 
     spaceball = new TrackballRotator(canvas, draw, 0);
-
+    startDeviceOrientation();
     window.setInterval(() => draw(), 1000 / 15);
 }
 
@@ -368,3 +411,15 @@ function CreateWebCamTexture() {
 
     return texture;
 }
+
+const startDeviceOrientation = async () => {
+    try {
+        window.addEventListener('deviceorientation', (event) => {
+            alpha = event.alpha
+            beta = event.beta
+            gamma = event.gamma
+        }, true);
+    } catch (error) {
+        console.error('error', error);
+    }
+};
