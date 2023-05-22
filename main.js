@@ -3,7 +3,7 @@ let gl;                         // The webgl context.
 let surface;                    // A surface model
 let shProgram;                  // A shader program
 let spaceball;                  // A SimpleRotator object that lets the user rotate the view by mouse.
-let video, videoTrack, webcamTexture, background;
+let video, videoTrack, webcamTexture, background, sphere;
 
 // Init data for calculation figure coordinates
 let scale = 0.4;
@@ -165,7 +165,8 @@ function draw() {
     if (panner) {
         let x = parseFloat(xPosition);
         let y = parseFloat(yPosition);
-        panner.setPosition(x, y, 0);
+        let z = parseFloat(zPosition);
+        panner.setPosition(x, y, z);
     }
 
     gl.clearColor(1,1,1,1);
@@ -224,7 +225,7 @@ function draw() {
 
     gl.uniformMatrix4fv(shProgram.iProjectionMatrix, false, matrixLeftFrustum_t)
     gl.uniformMatrix4fv(shProgram.iModelViewMatrix, false, matAccumZero_t)
-    background.Draw();
+    sphere.Draw();
     gl.clear(gl.DEPTH_BUFFER_BIT)
 
 
@@ -297,48 +298,8 @@ function initGL() {
     surface = new SurfaceModel('Surface');
     surface.BufferData(CreateSurfaceData());
 
-    background = new SurfaceModel('Background');
-    background.BufferData(
-        [
-            
-                -0.3, -0.3,  0.3,
-                0.3, -0.3,  0.3,
-                0.3,  0.3,  0.3,
-                -0.3,  0.3,  0.3,
-
-                -0.3, -0.3, -0.3,
-                -0.3,  0.3, -0.3,
-                0.3,  0.3, -0.3,
-                0.3, -0.3, -0.3,
-
-                -0.3,  0.3, -0.3,
-                -0.3,  0.3,  0.3,
-                0.3,  0.3,  0.3,
-                0.3,  0.3, -0.3,
-
-                -0.3, -0.3, -0.3,
-                0.3, -0.3, -0.3,
-                0.3, -0.3,  0.3,
-                -0.3, -0.3,  0.3,
-
-                -0.3, -0.3, -0.3,
-                -0.3, -0.3,  0.3,
-                -0.3,  0.3,  0.3,
-                -0.3,  0.3, -0.3
-        ]
-        // [
-        //     0,0,0,
-        //     0.5,0,0,
-        //     0.5,0.5,0,
-        //     0.5,0.5,0,
-        //     0,0.5,0,
-        //     0,0,0],
-        // [
-        //     0.5,0.5,0,
-        //     0.5,0,0,
-        //     0,0,0.5,
-        //     0,0.5,0.3]
-    );
+    sphere = new SurfaceModel('Sphere');
+    sphere.BufferData(createSphere(0.2, 26, 26));
 
     gl.enable(gl.DEPTH_TEST);
 }
@@ -543,10 +504,10 @@ function AudioSetup() {
             panner.connect(filter);
             filter.connect(audioContext.destination);
 
-            // Biquad filter parameters (customize according to taste)
+            // highshelf filter parameters
             filter.type = 'highshelf';
-            filter.frequency.value = 24000;
-            filter.gain.value = 5;
+            filter.frequency.value = 1000;
+            filter.gain.value = 10;
             audioContext.resume();
         }
     })
@@ -574,4 +535,28 @@ function StartAudio() {
             panner.connect(audioContext.destination);
         }
     });
+}
+
+function createSphere(radius, latitudeBands, longitudeBands) {
+    const positions = [];
+
+    for (let lat = 0; lat <= latitudeBands; lat++) {
+        const theta = (lat * Math.PI) / latitudeBands;
+        const sinTheta = Math.sin(theta);
+        const cosTheta = Math.cos(theta);
+
+        for (let lon = 0; lon <= longitudeBands; lon++) {
+            const phi = (lon * 2 * Math.PI) / longitudeBands;
+            const sinPhi = Math.sin(phi);
+            const cosPhi = Math.cos(phi);
+
+            const x = radius * cosPhi * sinTheta;
+            const y = radius * cosTheta;
+            const z = radius * sinPhi * sinTheta;
+
+            positions.push(x, y, z);
+        }
+    }
+
+    return positions;
 }

@@ -20,7 +20,7 @@
 <body onload="init()">
     <h2>TR-23 Igor Kondratiuk</h2>
     <h3>Variant 12. Monge Surface with Cylindrical Directrix Surface and with a Sinusoid as Meridian</h3>
-    <h3>Implement surface rotation based on software orientation sensor readings.</h3>
+    <h3>Spatial audio</h3>
     <audio id="audio" src="./song.mp3" controls loop></audio>
     <input type="checkbox" id="filterCheckbox" checked>Enable Filter
     <div style="display: flex;">
@@ -66,14 +66,14 @@
     </div>
     <div>
         <input type="range" id="zPosition" min="-1" max="1" step="0.01" value="0" oninput="showValue('zPosition', 'zPositionSpan')" />
-        <label for="yPosition">Y Position:</label>
+        <label for="yPosition">Z Position:</label>
         <span id="zPositionSpan">0</span>
     </div>
-    <div>
-        alpha: <span id="alpha"></span> ;
-        beta <span id="beta"></span> ;
-        gamma <span id="gamma"></span> ;
-    </div>
+<!--    <div>-->
+<!--        alpha: <span id="alpha"></span> ;-->
+<!--        beta <span id="beta"></span> ;-->
+<!--        gamma <span id="gamma"></span> ;-->
+<!--    </div>-->
     <script>
         function showValue(inputId, spanId) {
             let inputVal = document.getElementById(inputId).value
