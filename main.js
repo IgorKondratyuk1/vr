@@ -3,7 +3,7 @@ let gl;                         // The webgl context.
 let surface;                    // A surface model
 let shProgram;                  // A shader program
 let spaceball;                  // A SimpleRotator object that lets the user rotate the view by mouse.
-let video, videoTrack, webcamTexture, background, sphere;
+let video, videoTrack, webcamTexture, background, sphere, changePositionInterval;
 
 // Init data for calculation figure coordinates
 let scale = 0.4;
@@ -188,7 +188,7 @@ function draw() {
     let eyeSeparation = 0.2;        // Eye Separation
     let aspectRatio = 1.5;          // Aspect Ratio
     let fieldOfView = Math.PI / 3;  // FOV along Y in degrees
-    let nearClippingDistance = 9;   // Near Clipping Distance
+    let nearClippingDistance = 2;   // Near Clipping Distance
     let farClippingDistance = 12.0; // Far Clipping Distance
 
     fieldOfView = Number(document.getElementById('fieldOfView').value);
@@ -368,7 +368,8 @@ async function init() {
     spaceball = new TrackballRotator(canvas, draw, 0);
     //startDeviceOrientation();
     updatePosition();
-    StartAudio();
+    startAudio();
+    autoPositionChange();
     window.setInterval(() => draw(), 1000 / 15);
 }
 
@@ -466,7 +467,6 @@ function updatePosition() {
 
 // Handle user input changes
 function handleInputChange(event) {
-
     switch (event.target.id) {
         case 'xPosition':
             console.log('xPosition');
@@ -519,7 +519,7 @@ function AudioSetup() {
     })
 }
 
-function StartAudio() {
+function startAudio() {
     AudioSetup();
 
     let filterCheckbox = document.getElementById('filterCheckbox');
@@ -535,6 +535,8 @@ function StartAudio() {
             panner.connect(audioContext.destination);
         }
     });
+
+    audio.play();
 }
 
 function createSphere(radius, latitudeBands, longitudeBands) {
@@ -559,4 +561,47 @@ function createSphere(radius, latitudeBands, longitudeBands) {
     }
 
     return positions;
+}
+
+
+
+function autoPositionChange() {
+    const centerX = 0;
+    const centerY = 0;
+    const radius = 1;
+    const numSides = 20;
+    let currentSide = 0;
+
+    changePositionInterval = autoInterval(currentSide, numSides, centerX, centerY, radius);
+
+
+    let autoChangePosition = document.getElementById('autoChangePosition');
+    autoChangePosition.addEventListener('change', function() {
+        if (autoChangePosition.checked) {
+            changePositionInterval = autoInterval(currentSide, numSides, centerX, centerY, radius);
+        } else {
+            clearInterval(changePositionInterval);
+        }
+    });
+}
+
+function drawCircle(currentSide, numSides, centerX, centerY, radius) {
+    const angle = (currentSide / numSides) * Math.PI * 2;
+    const x = centerX + Math.cos(angle) * radius;
+    const z = centerY + Math.sin(angle) * radius;
+    xPosition = x;
+    zPosition = z;
+    //console.log({x, z})
+}
+
+function autoInterval(currentSide, numSides, centerX, centerY, radius) {
+    return setInterval(() => {
+        if (currentSide < numSides) {
+            drawCircle(currentSide, numSides, centerX, centerY, radius);
+            currentSide++;
+        } else {
+            currentSide = 0;
+            drawCircle(currentSide, numSides, centerX, centerY, radius)
+        }
+    }, 200);
 }
