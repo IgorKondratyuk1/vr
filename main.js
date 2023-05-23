@@ -209,22 +209,13 @@ function draw() {
 
 
     const translationMatrix = m4.translation(xPosition, yPosition, zPosition);
-    // console.log(translationMatrix)
-    // let matAccum_test = m4.multiply(rotateToPointZero, modelView)
-    // const updatedModelViewMatrix = m4.multiply(translationMatrix, matAccum_test);
-    // console.log(updatedModelViewMatrix);
-    // gl.uniformMatrix4fv(shProgram.iProjectionMatrix, false, updatedModelViewMatrix)
-    // gl.uniformMatrix4fv(shProgram.iModelViewMatrix, false, updatedModelViewMatrix)
-    // background.Draw();
-    // gl.clear(gl.DEPTH_BUFFER_BIT)
+    let matAccum_sphere = m4.multiply(rotateToPointZero, modelView)
+    let matAccum_tr_sphere = m4.multiply(translationMatrix, matAccum_sphere)
+    let matAccumZero_sphere = m4.multiply(translateToPointZero, matAccum_tr_sphere)
+    let matrixFrustum_sphere = ApplyLeftFrustum(convergence, eyeSeparation, aspectRatio, fieldOfView, nearClippingDistance, farClippingDistance)
 
-    let matAccum_t = m4.multiply(rotateToPointZero, modelView)
-    let matAccumLR_t = m4.multiply(translationMatrix, matAccum_t)
-    let matAccumZero_t = m4.multiply(translateToPointZero, matAccumLR_t)
-    let matrixLeftFrustum_t = ApplyLeftFrustum(convergence, eyeSeparation, aspectRatio, fieldOfView, nearClippingDistance, farClippingDistance)
-
-    gl.uniformMatrix4fv(shProgram.iProjectionMatrix, false, matrixLeftFrustum_t)
-    gl.uniformMatrix4fv(shProgram.iModelViewMatrix, false, matAccumZero_t)
+    gl.uniformMatrix4fv(shProgram.iProjectionMatrix, false, matrixFrustum_sphere)
+    gl.uniformMatrix4fv(shProgram.iModelViewMatrix, false, matAccumZero_sphere)
     sphere.Draw();
     gl.clear(gl.DEPTH_BUFFER_BIT)
 
@@ -507,7 +498,7 @@ function AudioSetup() {
             // highshelf filter parameters
             filter.type = 'highshelf';
             filter.frequency.value = 1000;
-            filter.gain.value = 10;
+            filter.gain.value = 15;
             audioContext.resume();
         }
     })
@@ -563,45 +554,41 @@ function createSphere(radius, latitudeBands, longitudeBands) {
     return positions;
 }
 
-
-
 function autoPositionChange() {
     const centerX = 0;
-    const centerY = 0;
+    const centerZ = 0;
     const radius = 1;
     const numSides = 20;
     let currentSide = 0;
 
-    changePositionInterval = autoInterval(currentSide, numSides, centerX, centerY, radius);
-
+    changePositionInterval = autoInterval(currentSide, numSides, centerX, centerZ, radius);
 
     let autoChangePosition = document.getElementById('autoChangePosition');
     autoChangePosition.addEventListener('change', function() {
         if (autoChangePosition.checked) {
-            changePositionInterval = autoInterval(currentSide, numSides, centerX, centerY, radius);
+            changePositionInterval = autoInterval(currentSide, numSides, centerX, centerZ, radius);
         } else {
             clearInterval(changePositionInterval);
         }
     });
 }
 
-function drawCircle(currentSide, numSides, centerX, centerY, radius) {
+function drawCircle(currentSide, numSides, centerX, centerZ, radius) {
     const angle = (currentSide / numSides) * Math.PI * 2;
     const x = centerX + Math.cos(angle) * radius;
-    const z = centerY + Math.sin(angle) * radius;
+    const z = centerZ + Math.sin(angle) * radius;
     xPosition = x;
     zPosition = z;
-    //console.log({x, z})
 }
 
-function autoInterval(currentSide, numSides, centerX, centerY, radius) {
+function autoInterval(currentSide, numSides, centerX, centerZ, radius) {
     return setInterval(() => {
         if (currentSide < numSides) {
-            drawCircle(currentSide, numSides, centerX, centerY, radius);
+            drawCircle(currentSide, numSides, centerX, centerZ, radius);
             currentSide++;
         } else {
             currentSide = 0;
-            drawCircle(currentSide, numSides, centerX, centerY, radius)
+            drawCircle(currentSide, numSides, centerX, centerZ, radius)
         }
     }, 200);
 }
